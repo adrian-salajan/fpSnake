@@ -9,7 +9,7 @@ import java.awt.{Color, Dimension, Graphics, Graphics2D}
 import javax.swing.JPanel
 
 class GamePanel(world: Ref[World], time: ZStream[Any, Nothing, Unit], events: Queue[KeyPressed]) extends JPanel {
-  override def getPreferredSize: Dimension = new Dimension(500, 500)
+  override def getPreferredSize: Dimension = new Dimension(400, 400)
 
   override def isFocusable: Boolean = true
 
@@ -27,7 +27,6 @@ class GamePanel(world: Ref[World], time: ZStream[Any, Nothing, Unit], events: Qu
   addKeyListener(new KeyAdapter {
     override def keyPressed(e: KeyEvent): Unit =
       zio.Runtime.default.unsafeRun(
-        ZIO.debug(e.getKeyChar) *>
           events.offer(KeyPressed(e.getKeyChar)) *> ZIO.succeed(repaint())
       )
   })

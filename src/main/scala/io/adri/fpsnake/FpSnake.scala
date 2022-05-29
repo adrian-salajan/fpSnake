@@ -1,5 +1,6 @@
 package io.adri.fpsnake
 
+import zio.ZIO.debug
 import zio.clock.Clock
 import zio.stream.ZStream
 import zio.{ExitCode, Has, IO, Promise, Queue, Ref, UIO, URIO, ZEnv, ZIO, ZQueue, ZRef, blocking}
@@ -19,12 +20,15 @@ object FpSnake extends zio.App {
       _ <- ZIO.debug("running FpSnake")
       keyPressEvents <- ZQueue.bounded[KeyPressed](32)
       quit <- Promise.make[Nothing, Unit]
-      time = ZStream.repeatEffect(ZIO.unit *> ZIO.sleep(100.milli)).provideLayer(Clock.live)
+      renderTime = ZStream.repeatEffect(ZIO.unit *> ZIO.sleep(10.milli)).provideLayer(Clock.live)
+      worldTime = ZStream.repeatEffect(ZIO.unit *> ZIO.sleep(100.milli)).provideLayer(Clock.live)
       world <- Ref.make(World.init)
       _ <- blocking.blocking(IO.succeed(SwingUtilities.invokeLater(new Runnable {
-        override def run(): Unit = gameWindows(world, time, keyPressEvents, quit)
+        override def run(): Unit = gameWindows(world, renderTime, keyPressEvents, quit)
       })))
-      _ <- gameLogic(keyPressEvents, world, time).forever race quit.await
+      _ <- gameLogic(keyPressEvents, world, worldTime)
+        .forever
+        .tapError(over => ZIO.debug(over.getMessage)) race quit.await
       _ <- ZIO.debug("exiting FpSnake")
     } yield ()).exitCode
   }

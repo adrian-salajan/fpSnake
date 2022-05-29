@@ -4,14 +4,29 @@ import zio.clock.Clock
 import zio.random.Random
 import zio.stream.ZStream
 import zio.{Ref, UIO, ZIO, random}
-
+import Direction._
 case class World(snake: Snake, food: Box, size: Box) {
+
+  def isBit(snake: Snake): Boolean =
+    snake.direction match {
+      case Up => snake.body.tail.contains(snake.head)
+      case Down => snake.body.tail.contains(snake.head)
+      case Left => snake.body.tail.contains(snake.head)
+      case Right => snake.body.tail.contains(snake.head)
+    }
 
   def advance(newDirection: Option[Direction]) = {
     val moved = newDirection.fold(new World(snake.advance(), food, size))(
-      direction => World(snake.advance(direction), food, size)
+      newDir =>
+        (snake.direction, newDir) match {
+          case (Up | Down, Left | Right) => World(snake.advance(newDir), food, size)
+          case (Left | Right, Up | Down) => World(snake.advance(newDir), food, size)
+          case _ => World(snake.advance(), food, size)
+        }
+
     )
-    if (moved.canEat)
+    if (isBit(snake)) ZIO.fail(new RuntimeException(s"Game over, length was ${snake.body.size}"))
+    else if (moved.canEat)
       generateFood.map(newFood => eat.copy(food = newFood))
    else ZIO.succeed(moved)
   }
@@ -34,7 +49,7 @@ case class World(snake: Snake, food: Box, size: Box) {
 }
 object World {
 
-  def init = World(Snake.startingSnake, Box(15,10), Box(50, 50))
+  def init = World(Snake.startingSnake, Box(15,10), Box(40, 40))
 }
 
 sealed trait Direction
@@ -45,6 +60,8 @@ object Direction {
   final object Right extends Direction
 }
 case class Snake(body: Vector[Box], direction: Direction) {
+  val head = body.head
+
   def advance(newDirection: Direction = direction): Snake = {
     newDirection match {
       case Direction.Up =>
@@ -57,7 +74,6 @@ case class Snake(body: Vector[Box], direction: Direction) {
         Snake(body.init.prepended(body.head.right), newDirection)
     }
   }
-  val head = body.head
 }
 
 object Snake {
