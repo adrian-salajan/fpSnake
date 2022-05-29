@@ -12,15 +12,15 @@ case class World(snake: Snake, food: Box, size: Box) {
       direction => World(snake.advance(direction), food, size)
     )
     if (moved.canEat)
-      generateFood.map(newFood => eat(newFood))
+      generateFood.map(newFood => eat.copy(food = newFood))
    else ZIO.succeed(moved)
   }
 
   def canEat: Boolean = (snake.direction, food) match {
-    case (Direction.Up, f) if (f.x == snake.head.x && snake.head.y - 1 == food.y) => true
-    case (Direction.Down, f) if (f.x == snake.head.x && snake.head.y + 1 == food.y) => true
-    case (Direction.Right, f) if (f.y == snake.head.y && snake.head.x + 1 == food.x) => true
-    case (Direction.Left, f) if (f.y == snake.head.y && snake.head.x - 1 == food.x) => true
+    case (Direction.Up, f) if (food == snake.head) => true
+    case (Direction.Down, f) if (food == snake.head) => true
+    case (Direction.Right, f) if (food == snake.head) => true
+    case (Direction.Left, f) if (food == snake.head) => true
     case _=> false
   }
 
@@ -29,12 +29,12 @@ case class World(snake: Snake, food: Box, size: Box) {
     y <- random.nextIntBounded(size.y)
   } yield Box(x, y)).repeatUntil(newFood => !snake.body.contains(newFood))
 
-  def eat(newFood: Box) = World(Snake(snake.body.prepended(food), snake.direction), newFood, size)
+  def eat = World(Snake(snake.body.prepended(food), snake.direction), food, size)
 
 }
 object World {
 
-  def init = World(Snake.startingSnake, Box(8,8), Box(50, 50))
+  def init = World(Snake.startingSnake, Box(15,10), Box(50, 50))
 }
 
 sealed trait Direction

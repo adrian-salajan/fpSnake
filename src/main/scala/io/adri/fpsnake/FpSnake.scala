@@ -63,7 +63,6 @@ object FpSnake extends zio.App {
   def gameLogic(events: Queue[KeyPressed], world: Ref[World], time: ZStream[Any, Nothing, Unit]) = for {
     //update world based on events
     _ <- (ZStream.fromEffect(events.poll) zip time)
-      .tap(_ => ZIO.debug("tick"))
       .tap {
         case (Some(kp), _) =>
           kp.char match {

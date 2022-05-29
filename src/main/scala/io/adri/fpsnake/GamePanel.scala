@@ -40,8 +40,8 @@ class GamePanel(world: Ref[World], time: ZStream[Any, Nothing, Unit], events: Qu
       (for {
         s <- world.get.map(_.snake)
         food <- world.get.map(_.food)
-        _ <- Draw.snake(s)
         _ <- Draw.food(food)
+        _ <- Draw.snake(s)
       } yield ()
         ).provide(Has(g))
     }

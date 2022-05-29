@@ -12,7 +12,6 @@ object Draw {
     _ <- ZIO.effect(g.setColor(Color.RED))
     _ <- ZIO.effect {
       s.body.foreach { bodyPart =>
-        println(bodyPart.x * Size)
         g.drawRect(bodyPart.x * Size, bodyPart.y * Size, Size, Size)
       }
     }
