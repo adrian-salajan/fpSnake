@@ -3,7 +3,30 @@ package io.adri.fpsnake
 import io.adri.fpsnake.Direction._
 
 case class World(snake: Snake, food: Box, size: Box, gameOver: Boolean = false) {
-  def nextFoodIsValid(food: Box) =
+
+  def advance(newDirection: Option[Direction], nextFood: Box): World = {
+    val nextDirectionSnake = newDirection.fold(this.snake)(newDir =>
+      (snake.direction, newDir) match {
+        case (Up | Down, Left | Right) => snake.changeDirection(newDir)
+        case (Left | Right, Up | Down) => snake.changeDirection(newDir)
+        case _ => snake
+      }
+    )
+
+    if (willBeBit(nextDirectionSnake) || outsideWorld(nextDirectionSnake))
+      this.copy(gameOver = true)
+    else {
+      val (nextSnake, nextFoodPosition) =
+        if (nextDirectionSnake.canEat(food))
+          (Snake(nextDirectionSnake.body.prepended(food), nextDirectionSnake.direction), nextFood)
+        else
+          (nextDirectionSnake, food)
+
+      this.copy(snake = nextSnake.move, food = nextFoodPosition)
+    }
+  }
+
+  def nextFoodIsValid(food: Box): Boolean =
     !snake.body.contains(food)
 
   def willBeBit(snake: Snake): Boolean =
@@ -17,36 +40,15 @@ case class World(snake: Snake, food: Box, size: Box, gameOver: Boolean = false) 
   def outsideWorld(nextDirectionSnake: Snake): Boolean =
     nextDirectionSnake.direction match {
       case Up => nextDirectionSnake.head.up.y < 0
-      case Down =>nextDirectionSnake.head.down.y > size.y
+      case Down => nextDirectionSnake.head.down.y > size.y
       case Left => nextDirectionSnake.head.left.x < 0
       case Right => nextDirectionSnake.head.right.x > size.x
     }
 
-  def advance(newDirection: Option[Direction], nextFood: Box): World = {
-    val nextDirectionSnake = newDirection.fold(this.snake)(newDir =>
-      (snake.direction, newDir) match {
-        case (Up | Down, Left | Right) => snake.changeDirection(newDir)
-        case (Left | Right, Up | Down) => snake.changeDirection(newDir)
-        case _ => snake
-      }
-    )
-
-    if (willBeBit(nextDirectionSnake) || outsideWorld(nextDirectionSnake)) this.copy(gameOver = true)
-    else {
-      val (nextSnake, nextFoodPosition) =
-        if (nextDirectionSnake.canEat(food))
-          (Snake(nextDirectionSnake.body.prepended(food), nextDirectionSnake.direction), nextFood)
-        else
-          (nextDirectionSnake, food)
-
-      this.copy(snake = nextSnake.move(), food = nextFoodPosition)
-    }
-  }
 
 }
 
 object World {
-
   def init = World(Snake.startingSnake, Box(15, 10), Box(40, 40))
 }
 
@@ -65,9 +67,9 @@ object Direction {
 case class Snake(body: Vector[Box], direction: Direction) {
   val head = body.head
 
-  def changeDirection(newDirection: Direction) = copy(direction = newDirection)
+  def changeDirection(newDirection: Direction): Snake = copy(direction = newDirection)
 
-  def move(): Snake = {
+  def move: Snake = {
     direction match {
       case Direction.Up =>
         Snake(body.init.prepended(body.head.up), direction)
@@ -91,6 +93,7 @@ case class Snake(body: Vector[Box], direction: Direction) {
 
 object Snake {
   private val startingHead = Box(10, 10)
+
   val startingSnake = new Snake(
     Vector(startingHead, startingHead.left, startingHead.left.left, startingHead.left.left.left),
     direction = Direction.Right

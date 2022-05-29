@@ -1,15 +1,12 @@
 package io.adri.fpsnake
 
-import zio.ZIO.debug
 import zio.clock.Clock
-import zio.stream.ZStream
-import zio.{ExitCode, Has, IO, Promise, Queue, Ref, UIO, URIO, ZEnv, ZIO, ZQueue, ZRef, blocking, random}
 import zio.duration._
-import zio.random.Random
+import zio.stream.ZStream
+import zio.{ExitCode, IO, Promise, Queue, Ref, URIO, ZEnv, ZIO, ZQueue, blocking, random}
 
-import java.awt.event.{MouseAdapter, MouseEvent, MouseListener, WindowEvent, WindowListener}
-import java.awt.{Color, Graphics}
-import javax.swing.{JFrame, JPanel, SwingUtilities, WindowConstants}
+import java.awt.event.{WindowEvent, WindowListener}
+import javax.swing.{JFrame, SwingUtilities, WindowConstants}
 
 object FpSnake extends zio.App {
   case class KeyPressed(char: Char)
@@ -73,6 +70,7 @@ object FpSnake extends zio.App {
           w <- world.get
           nextFoodCandidate = (random.nextIntBounded(w.size.x) <&> random.nextIntBounded(w.size.x)).map {case (x, y) => Box(x, y)}
           nextFood <- nextFoodCandidate.repeatUntil(candidate => w.nextFoodIsValid(candidate))
+
           newWorld =  kp match {
             case None => w.advance(None, nextFood)
             case Some(keyPressed) =>
