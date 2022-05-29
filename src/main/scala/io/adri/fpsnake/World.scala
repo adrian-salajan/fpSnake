@@ -25,38 +25,35 @@ case class World(snake: Snake, food: Box, size: Box, gameOver: Boolean = false) 
 
     if (willBeBit(nextDirectionSnake)) this.copy(gameOver = true)
     else {
-      val moved = this.copy(snake = nextDirectionSnake.move())
-      if (moved.canEat)
-        World(
-          Snake(moved.snake.body.prepended(food), moved.snake.direction),
-          nextFood,
-          size)
-      else moved
+      val (nextSnake, nextFoodPosition) =
+        if (nextDirectionSnake.canEat(food))
+          (Snake(nextDirectionSnake.body.prepended(food), nextDirectionSnake.direction), nextFood)
+        else
+          (nextDirectionSnake, food)
+
+      this.copy(snake = nextSnake.move(), food = nextFoodPosition)
     }
   }
 
-
-  def canEat: Boolean = snake.direction match {
-    case Direction.Up if (food == snake.head) => true
-    case Direction.Down if (food == snake.head) => true
-    case Direction.Right if (food == snake.head) => true
-    case Direction.Left if (food == snake.head) => true
-    case _=> false
-  }
-
 }
+
 object World {
 
-  def init = World(Snake.startingSnake, Box(15,10), Box(40, 40))
+  def init = World(Snake.startingSnake, Box(15, 10), Box(40, 40))
 }
 
 sealed trait Direction
+
 object Direction {
   final object Up extends Direction
+
   final object Down extends Direction
+
   final object Left extends Direction
+
   final object Right extends Direction
 }
+
 case class Snake(body: Vector[Box], direction: Direction) {
   val head = body.head
 
@@ -74,10 +71,18 @@ case class Snake(body: Vector[Box], direction: Direction) {
         Snake(body.init.prepended(body.head.right), direction)
     }
   }
+
+  def canEat(food: Box): Boolean = direction match {
+    case Direction.Up if (head.up == food) => true
+    case Direction.Down if (head.down == food) => true
+    case Direction.Right if (head.right == food) => true
+    case Direction.Left if (head.left == food) => true
+    case _ => false
+  }
 }
 
 object Snake {
-  private val startingHead = Box(10,10)
+  private val startingHead = Box(10, 10)
   val startingSnake = new Snake(
     Vector(startingHead, startingHead.left, startingHead.left.left, startingHead.left.left.left),
     direction = Direction.Right
@@ -87,7 +92,10 @@ object Snake {
 
 case class Box(x: Int, y: Int) {
   def up = Box(x, y - 1)
+
   def down = Box(x, y + 1)
-  def left = Box(x - 1 , y)
-  def right = Box(x + 1 , y)
+
+  def left = Box(x - 1, y)
+
+  def right = Box(x + 1, y)
 }
