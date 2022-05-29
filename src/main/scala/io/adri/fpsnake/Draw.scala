@@ -25,5 +25,13 @@ object Draw {
       }
   } yield ()).tapError(t => ZIO.debug(t.getMessage)).orDie
 
+  def gameOver(score: Int): ZIO[Has[Graphics], Nothing, Unit] = (for {
+    g <- ZIO.service[Graphics]
+    _ <- ZIO.effect(g.setColor(Color.GREEN))
+    _ <- ZIO.effect {
+      g.drawString(s"Game over!", 150, 200)
+      g.drawString(s"Score $score", 150, 220)
+    }
+  } yield ()).tapError(t => ZIO.debug(t.getMessage)).orDie
 
 }

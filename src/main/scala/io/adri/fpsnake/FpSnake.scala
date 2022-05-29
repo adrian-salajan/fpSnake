@@ -3,7 +3,7 @@ package io.adri.fpsnake
 import zio.ZIO.debug
 import zio.clock.Clock
 import zio.stream.ZStream
-import zio.{ExitCode, Has, IO, Promise, Queue, Ref, UIO, URIO, ZEnv, ZIO, ZQueue, ZRef, blocking}
+import zio.{ExitCode, Has, IO, Promise, Queue, Ref, UIO, URIO, ZEnv, ZIO, ZQueue, ZRef, blocking, random}
 import zio.duration._
 import zio.random.Random
 
@@ -26,9 +26,10 @@ object FpSnake extends zio.App {
       _ <- blocking.blocking(IO.succeed(SwingUtilities.invokeLater(new Runnable {
         override def run(): Unit = gameWindows(world, renderTime, keyPressEvents, quit)
       })))
+
       _ <- gameLogic(keyPressEvents, world, worldTime)
-        .forever
-        .tapError(over => ZIO.debug(over.getMessage)) race quit.await
+        .forever.tapError(e => ZIO.debug(e)) race quit.await
+
       _ <- ZIO.debug("exiting FpSnake")
     } yield ()).exitCode
   }
@@ -67,16 +68,25 @@ object FpSnake extends zio.App {
   def gameLogic(events: Queue[KeyPressed], world: Ref[World], time: ZStream[Any, Nothing, Unit]) = for {
     //update world based on events
     _ <- (ZStream.fromEffect(events.poll) zip time)
-      .tap {
-        case (Some(kp), _) =>
-          kp.char match {
-            case 'w' => world.get.flatMap(_.advance(Some(Direction.Up))).flatMap(world.set)
-            case 's' => world.get.flatMap(_.advance(Some(Direction.Down))).flatMap(world.set)
-            case 'a' => world.get.flatMap(_.advance(Some(Direction.Left))).flatMap(world.set)
-            case 'd' => world.get.flatMap(_.advance(Some(Direction.Right))).flatMap(world.set)
-            case _ => IO.unit
+      .mapM { case (kp, _) =>
+        for {
+          w <- world.get
+          nextFoodCandidate = (random.nextIntBounded(w.size.x) <&> random.nextIntBounded(w.size.x)).map {case (x, y) => Box(x, y)}
+          nextFood <- nextFoodCandidate.repeatUntil(candidate => w.nextFoodIsValid(candidate))
+          newWorld =  kp match {
+            case None => w.advance(None, nextFood)
+            case Some(keyPressed) =>
+              keyPressed.char match {
+                case 'w' => w.advance(Some(Direction.Up), nextFood)
+                case 's' => w.advance(Some(Direction.Down), nextFood)
+                case 'a' => w.advance(Some(Direction.Left), nextFood)
+                case 'd' => w.advance(Some(Direction.Right), nextFood)
+                case _ => w
+            }
           }
-        case (None, _) => world.get.flatMap(_.advance(None)).flatMap(world.set)
+          _ <- world.set(newWorld)
+          _ <- if (newWorld.gameOver) ZIO.fail("Game over") else ZIO.unit
+        } yield newWorld
       }
       .runDrain
 

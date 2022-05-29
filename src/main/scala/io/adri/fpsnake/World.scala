@@ -1,50 +1,48 @@
 package io.adri.fpsnake
 
-import zio.clock.Clock
-import zio.random.Random
-import zio.stream.ZStream
-import zio.{Ref, UIO, ZIO, random}
-import Direction._
-case class World(snake: Snake, food: Box, size: Box) {
+import io.adri.fpsnake.Direction._
 
-  def isBit(snake: Snake): Boolean =
+case class World(snake: Snake, food: Box, size: Box, gameOver: Boolean = false) {
+  def nextFoodIsValid(food: Box) =
+    !snake.body.contains(food)
+
+  def willBeBit(snake: Snake): Boolean =
     snake.direction match {
-      case Up => snake.body.tail.contains(snake.head)
-      case Down => snake.body.tail.contains(snake.head)
-      case Left => snake.body.tail.contains(snake.head)
-      case Right => snake.body.tail.contains(snake.head)
+      case Up => snake.body.tail.contains(snake.head.up)
+      case Down => snake.body.tail.contains(snake.head.down)
+      case Left => snake.body.tail.contains(snake.head.left)
+      case Right => snake.body.tail.contains(snake.head.right)
     }
 
-  def advance(newDirection: Option[Direction]) = {
-    val moved = newDirection.fold(new World(snake.advance(), food, size))(
-      newDir =>
-        (snake.direction, newDir) match {
-          case (Up | Down, Left | Right) => World(snake.advance(newDir), food, size)
-          case (Left | Right, Up | Down) => World(snake.advance(newDir), food, size)
-          case _ => World(snake.advance(), food, size)
-        }
-
+  def advance(newDirection: Option[Direction], nextFood: Box): World = {
+    val nextDirectionSnake = newDirection.fold(this.snake)(newDir =>
+      (snake.direction, newDir) match {
+        case (Up | Down, Left | Right) => snake.changeDirection(newDir)
+        case (Left | Right, Up | Down) => snake.changeDirection(newDir)
+        case _ => snake
+      }
     )
-    if (isBit(snake)) ZIO.fail(new RuntimeException(s"Game over, length was ${snake.body.size}"))
-    else if (moved.canEat)
-      generateFood.map(newFood => eat.copy(food = newFood))
-   else ZIO.succeed(moved)
+
+    if (willBeBit(nextDirectionSnake)) this.copy(gameOver = true)
+    else {
+      val moved = this.copy(snake = nextDirectionSnake.move())
+      if (moved.canEat)
+        World(
+          Snake(moved.snake.body.prepended(food), moved.snake.direction),
+          nextFood,
+          size)
+      else moved
+    }
   }
 
-  def canEat: Boolean = (snake.direction, food) match {
-    case (Direction.Up, f) if (food == snake.head) => true
-    case (Direction.Down, f) if (food == snake.head) => true
-    case (Direction.Right, f) if (food == snake.head) => true
-    case (Direction.Left, f) if (food == snake.head) => true
+
+  def canEat: Boolean = snake.direction match {
+    case Direction.Up if (food == snake.head) => true
+    case Direction.Down if (food == snake.head) => true
+    case Direction.Right if (food == snake.head) => true
+    case Direction.Left if (food == snake.head) => true
     case _=> false
   }
-
-  val generateFood: ZIO[Random, Nothing, Box] = (for {
-    x <- random.nextIntBounded(size.x)
-    y <- random.nextIntBounded(size.y)
-  } yield Box(x, y)).repeatUntil(newFood => !snake.body.contains(newFood))
-
-  def eat = World(Snake(snake.body.prepended(food), snake.direction), food, size)
 
 }
 object World {
@@ -62,16 +60,18 @@ object Direction {
 case class Snake(body: Vector[Box], direction: Direction) {
   val head = body.head
 
-  def advance(newDirection: Direction = direction): Snake = {
-    newDirection match {
+  def changeDirection(newDirection: Direction) = copy(direction = newDirection)
+
+  def move(): Snake = {
+    direction match {
       case Direction.Up =>
-        Snake(body.init.prepended(body.head.up), newDirection)
+        Snake(body.init.prepended(body.head.up), direction)
       case Direction.Down =>
-        Snake(body.init.prepended(body.head.down), newDirection)
+        Snake(body.init.prepended(body.head.down), direction)
       case Direction.Left =>
-        Snake(body.init.prepended(body.head.left), newDirection)
+        Snake(body.init.prepended(body.head.left), direction)
       case Direction.Right =>
-        Snake(body.init.prepended(body.head.right), newDirection)
+        Snake(body.init.prepended(body.head.right), direction)
     }
   }
 }

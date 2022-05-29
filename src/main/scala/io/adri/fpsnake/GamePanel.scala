@@ -37,10 +37,11 @@ class GamePanel(world: Ref[World], time: ZStream[Any, Nothing, Unit], events: Qu
     setBackground(Color.BLACK)
     zio.Runtime.default.unsafeRun {
       (for {
-        s <- world.get.map(_.snake)
-        food <- world.get.map(_.food)
-        _ <- Draw.food(food)
-        _ <- Draw.snake(s)
+        w <- world.get
+
+        _ <- Draw.food(w.food)
+        _ <- Draw.snake(w.snake)
+        _ <- Draw.gameOver(w.snake.body.length).when(w.gameOver)
       } yield ()
         ).provide(Has(g))
     }
