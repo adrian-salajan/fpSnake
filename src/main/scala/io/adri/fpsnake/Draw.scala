@@ -18,4 +18,13 @@ object Draw {
     }
   } yield ()).tapError(t => ZIO.debug(t.getMessage)).orDie
 
+  def food(food: Box): ZIO[Has[Graphics], Nothing, Unit] = (for {
+    g <- ZIO.service[Graphics]
+    _ <- ZIO.effect(g.setColor(Color.RED))
+    _ <- ZIO.effect {
+        g.drawRect(food.x * Size, food.y * Size, Size, Size)
+      }
+  } yield ()).tapError(t => ZIO.debug(t.getMessage)).orDie
+
+
 }

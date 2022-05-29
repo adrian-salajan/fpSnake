@@ -8,7 +8,7 @@ import java.awt.event.{KeyAdapter, KeyEvent, KeyListener, MouseAdapter, MouseEve
 import java.awt.{Color, Dimension, Graphics, Graphics2D}
 import javax.swing.JPanel
 
-class GamePanel(world: World, events: Queue[KeyPressed]) extends JPanel {
+class GamePanel(world: Ref[World], time: ZStream[Any, Nothing, Unit], events: Queue[KeyPressed]) extends JPanel {
   override def getPreferredSize: Dimension = new Dimension(500, 500)
 
   override def isFocusable: Boolean = true
@@ -21,7 +21,7 @@ class GamePanel(world: World, events: Queue[KeyPressed]) extends JPanel {
   })
 
   zio.Runtime.default
-    .unsafeRunAsync_(world.time.tap(_ =>ZIO.succeed(this.repaint())).runDrain)
+    .unsafeRunAsync_(time.tap(_ =>ZIO.succeed(this.repaint())).runDrain)
 
 
   addKeyListener(new KeyAdapter {
@@ -38,8 +38,10 @@ class GamePanel(world: World, events: Queue[KeyPressed]) extends JPanel {
     setBackground(Color.BLACK)
     zio.Runtime.default.unsafeRun {
       (for {
-        s <- world.snake.get
+        s <- world.get.map(_.snake)
+        food <- world.get.map(_.food)
         _ <- Draw.snake(s)
+        _ <- Draw.food(food)
       } yield ()
         ).provide(Has(g))
     }

@@ -4,33 +4,32 @@ import zio.clock.Clock
 import zio.stream.ZStream
 import zio.{ExitCode, Has, IO, Promise, Queue, Ref, UIO, URIO, ZEnv, ZIO, ZQueue, ZRef, blocking}
 import zio.duration._
+import zio.random.Random
 
 import java.awt.event.{MouseAdapter, MouseEvent, MouseListener, WindowEvent, WindowListener}
 import java.awt.{Color, Graphics}
 import javax.swing.{JFrame, JPanel, SwingUtilities, WindowConstants}
 
-object  FpSnake extends zio.App {
+object FpSnake extends zio.App {
   case class KeyPressed(char: Char)
 
 
   def run(args: List[String]): URIO[ZEnv, ExitCode] = {
     (for {
-      _<- ZIO.debug("running FpSnake")
+      _ <- ZIO.debug("running FpSnake")
       keyPressEvents <- ZQueue.bounded[KeyPressed](32)
       quit <- Promise.make[Nothing, Unit]
-      snake <- ZRef.make(Snake.startingSnake)
-      world = World(
-        snake = snake,
-        time = ZStream.repeatEffect(ZIO.unit *> ZIO.sleep(300.milli)).provideLayer(Clock.live))
+      time = ZStream.repeatEffect(ZIO.unit *> ZIO.sleep(100.milli)).provideLayer(Clock.live)
+      world <- Ref.make(World.init)
       _ <- blocking.blocking(IO.succeed(SwingUtilities.invokeLater(new Runnable {
-        override def run(): Unit = gameWindows(world, keyPressEvents, quit)
+        override def run(): Unit = gameWindows(world, time, keyPressEvents, quit)
       })))
-      _<- gameLogic(keyPressEvents, world).forever race quit.await
-      _<- ZIO.debug("exiting FpSnake")
+      _ <- gameLogic(keyPressEvents, world, time).forever race quit.await
+      _ <- ZIO.debug("exiting FpSnake")
     } yield ()).exitCode
   }
 
-  def gameWindows(world: World, events: Queue[KeyPressed], allDone: Promise[Nothing, Unit]): Unit = {
+  def gameWindows(world: Ref[World], time: ZStream[Any, Nothing, Unit], events: Queue[KeyPressed], allDone: Promise[Nothing, Unit]): Unit = {
     val frame = new JFrame()
     frame.setTitle("FpSnake")
     frame.setLocationRelativeTo(null)
@@ -51,7 +50,7 @@ object  FpSnake extends zio.App {
       override def windowDeactivated(e: WindowEvent): Unit = ()
     })
 
-    val gamePanel = new GamePanel(world,  events)
+    val gamePanel = new GamePanel(world, time, events)
 
 
     frame.add(gamePanel)
@@ -61,26 +60,24 @@ object  FpSnake extends zio.App {
 
   }
 
-  def gameLogic(mouseDrage: Queue[KeyPressed], world: World): ZIO[Clock, Nothing, Unit] = for {
-      //update world based on events
-    _ <- (ZStream.fromEffect(mouseDrage.poll) zip world.time)
+  def gameLogic(events: Queue[KeyPressed], world: Ref[World], time: ZStream[Any, Nothing, Unit]) = for {
+    //update world based on events
+    _ <- (ZStream.fromEffect(events.poll) zip time)
       .tap(_ => ZIO.debug("tick"))
-      .tap { case (Some(kp), _) =>
-        kp.char match {
-          case 'w' => world.snake.update(_.advance(SnakeMovingDirection.Up))
-          case 's' => world.snake.update(_.advance(SnakeMovingDirection.Down))
-          case 'a' => world.snake.update(_.advance(SnakeMovingDirection.Left))
-          case 'd' => world.snake.update(_.advance(SnakeMovingDirection.Right))
-          case _ => IO.unit
-        }
-      case (None, _) => world.snake.update(s => s.advance())
+      .tap {
+        case (Some(kp), _) =>
+          kp.char match {
+            case 'w' => world.get.flatMap(_.advance(Some(Direction.Up))).flatMap(world.set)
+            case 's' => world.get.flatMap(_.advance(Some(Direction.Down))).flatMap(world.set)
+            case 'a' => world.get.flatMap(_.advance(Some(Direction.Left))).flatMap(world.set)
+            case 'd' => world.get.flatMap(_.advance(Some(Direction.Right))).flatMap(world.set)
+            case _ => IO.unit
+          }
+        case (None, _) => world.get.flatMap(_.advance(None)).flatMap(world.set)
       }
       .runDrain
 
   } yield ()
-
-
-
 
 
 }
