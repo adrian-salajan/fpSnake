@@ -14,6 +14,14 @@ case class World(snake: Snake, food: Box, size: Box, gameOver: Boolean = false) 
       case Right => snake.body.tail.contains(snake.head.right)
     }
 
+  def outsideWorld(nextDirectionSnake: Snake): Boolean =
+    nextDirectionSnake.direction match {
+      case Up => nextDirectionSnake.head.up.y < 0
+      case Down =>nextDirectionSnake.head.down.y > size.y
+      case Left => nextDirectionSnake.head.left.x < 0
+      case Right => nextDirectionSnake.head.right.x > size.x
+    }
+
   def advance(newDirection: Option[Direction], nextFood: Box): World = {
     val nextDirectionSnake = newDirection.fold(this.snake)(newDir =>
       (snake.direction, newDir) match {
@@ -23,7 +31,7 @@ case class World(snake: Snake, food: Box, size: Box, gameOver: Boolean = false) 
       }
     )
 
-    if (willBeBit(nextDirectionSnake)) this.copy(gameOver = true)
+    if (willBeBit(nextDirectionSnake) || outsideWorld(nextDirectionSnake)) this.copy(gameOver = true)
     else {
       val (nextSnake, nextFoodPosition) =
         if (nextDirectionSnake.canEat(food))
